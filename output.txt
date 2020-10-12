@@ -1,0 +1,58 @@
+[root@CWWLS01 WLST]# java weblogic.WLST monitoring.py
+
+Initializing WebLogic Scripting Tool (WLST) ...
+
+Welcome to WebLogic Server Administration Scripting Shell
+
+Type help() for help on available commands
+
+Connecting to the Admin Server (t3://localhost:7001)
+Connecting to t3://localhost:7001 with userid weblogic ...
+Successfully connected to Admin Server "AdminServer" that belongs to domain "base_domain".
+
+Warning: An insecure protocol was used to connect to the server.
+To ensure on-the-wire security, the SSL port or Admin port should be used instead.
+
+Connected
+Location changed to serverRuntime tree.
+ This is a read-only tree with ServerRuntimeMBean as the root.
+For more help, use help('serverRuntime').
+
+#####################
+Location changed to domainConfig tree. This is a read-only tree
+with DomainMBean as the root MBean.
+For more help, use help('domainConfig')
+
+Location changed to domainRuntime tree. This is a read-only tree
+with DomainMBean as the root MBean.
+For more help, use help('domainRuntime')
+
+
+Managed-Server: AdminServer
+---------------------------------------------------------------
+
+Server JVM Information:
+     JavaVendor ............................. = Oracle Corporation
+     JavaVersion ............................ = 1.8.0_191
+     HeapFreeCurrent ........................ = 220592824
+     HeapFreePercent ........................ = 71
+     HeapSizeCurrent ........................ = 355991552
+     Uptime ................................. = 11962 seconds
+
+Server ThreadPool Information:
+     Name ................................... = ThreadPoolRuntime
+     HealthState ............................ = HEALTH_OK
+     CompletedRequestCount .................. = 37337
+     ExecuteThreadTotalCount ................ = 11
+     ExecuteThreadIdleCount ................. = 1
+     HoggingThreadCount ..................... = 0
+     PendingUserRequestCount ................ = 0
+     QueueLength ............................ = 0
+     SharedCapacityForWorkManagers .......... = 65536
+     StandbyThreadCount ..................... = 9
+     Suspended .............................. = 0
+     Throughput ............................. = 2.0
+
+
+
+Disconnected from weblogic server: AdminServer
