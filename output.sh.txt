@@ -1,0 +1,10 @@
+****************************************
+Server Name: AdminServer
+**************************************************
+############## AdminServer ###############
+**************************************************
+##### Server State         ##### RUNNING
+##### Server ListenAddress ##### localhost/127.0.0.1
+##### Server ListenPort    ##### 7001
+##### Server Health State    ##### Component:null,Partition: null,State:HEALTH_OK,MBean:null,Symptoms:[], ReasonCode:[]
+Disconnected from weblogic server: AdminServer
