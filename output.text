@@ -32,21 +32,25 @@ For more help, use help('domainConfig')
 
 
 
+###################      DETAILED SUMMARY       ############################################
+###################################################################################
+###################################################################################
+
 Managed-Server: AdminServer
 ---------------------------------------------------------------
 
 Server JVM Information:
      JavaVendor ............................. = Oracle Corporation
      JavaVersion ............................ = 1.8.0_191
-     HeapFreeCurrent ........................ = 193004064
-     HeapFreePercent ........................ = 63
-     HeapSizeCurrent ........................ = 368574464
-     Uptime ................................. = 11148 seconds
+     HeapFreeCurrent ........................ = 190389632
+     HeapFreePercent ........................ = 62
+     HeapSizeCurrent ........................ = 367525888
+     Uptime ................................. = 12878 seconds
 
 Server ThreadPool Information:
      Name ................................... = ThreadPoolRuntime
      HealthState ............................ = HEALTH_OK
-     CompletedRequestCount .................. = 35998
+     CompletedRequestCount .................. = 41456
      ExecuteThreadTotalCount ................ = 11
      ExecuteThreadIdleCount ................. = 1
      HoggingThreadCount ..................... = 0
@@ -55,8 +59,10 @@ Server ThreadPool Information:
      SharedCapacityForWorkManagers .......... = 65536
      StandbyThreadCount ..................... = 9
      Suspended .............................. = 0
-     Throughput ............................. = 2.0
+     Throughput ............................. = 7.0
 
 
 
+###################################################################################
+###################################################################################
 Disconnected from weblogic server: AdminServer
