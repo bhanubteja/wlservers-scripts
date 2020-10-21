@@ -12,41 +12,6 @@ def connnectToAdminServer():
          connect('weblogic','weblogic123',connUri);
          print 'Connected';
 
-print "###################      SUMMARY       ############################################"
-print "###################################################################################"
-print "###################################################################################"
-
-connect('weblogic', 'weblogic123', 't3://localhost:7001')
-
-domainRuntime()
-
-cd('ServerRuntimes')
-
-serverRuntimes=ls(returnMap='true')
-
-for serverRuntime in serverRuntimes:
-    cd('/ServerRuntimes/' + serverRuntime)
-    print '****************************************'
-    print 'Server Name: ' + cmo.getName()
-
-
-
-servers=domainRuntimeService.getServerRuntimes()
-for server in servers:
-     serverName=server.getName();
-     print '**************************************************'
-     print '##############' , serverName,'###############'
-     print '**************************************************'
-     print '      Server State         .....=', server.getState()
-     print '      Server ListenAddress .....=', server.getListenAddress()
-     print '      Server ListenPort    .....=', server.getListenPort()
-     print '      Server Health State  .....=', server.getHealthState()
-
-print "###################################################################################"
-print "###################################################################################"
-print "###################################################################################"
-
-
 def getHealthStateInformation(myState):  # is of type weblogic.health.HealthState
         if(myState.getState()==weblogic.health.HealthState.HEALTH_OK):
             return "HEALTH_OK";
@@ -60,8 +25,6 @@ def getHealthStateInformation(myState):  # is of type weblogic.health.HealthStat
             return "HEALTH_OVERLOADED";
         else:
             return "UNKNOWN STATE";
-
-
 
 def printServerThreadPoolInformation(rootDirInTree):
         # change to ThreadPoolRuntime
@@ -93,7 +56,6 @@ def printServerThreadPoolInformation(rootDirInTree):
         # print Throughput
         print "     Throughput ............................. = " + str(get("Throughput"))
         print("")
-
 
 def printServerJVMRuntimeInformation(servername,rootDirInTree):
         # change to JVMRuntime
@@ -137,4 +99,21 @@ if __name__== "main":
        print("\n\n")
        printServerDetails(serverName,"/")
 
-   disconnect()
+print "###################      SUMMARY       ############################################"
+
+connect('weblogic', 'weblogic123', 't3://localhost:7001')
+
+servers=domainRuntimeService.getServerRuntimes()
+for server in servers:
+       serverName=server.getName();
+       print '**************************************************'
+       print '##############' , serverName,'###############'
+       print '**************************************************'
+       print '      Server State         .....=', server.getState()
+       print '      Server ListenAddress .....=', server.getListenAddress()
+       print '      Server ListenPort    .....=', server.getListenPort()
+       print '      Server Health State  .....=', server.getHealthState()
+
+print "###################################################################################"
+
+disconnect()
