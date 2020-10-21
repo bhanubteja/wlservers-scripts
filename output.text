@@ -1,53 +1,18 @@
-###################      SUMMARY       ############################################
-###################################################################################
-###################################################################################
-****************************************
-Server Name: AdminServer
-**************************************************
-############## AdminServer ###############
-**************************************************
-      Server State         .....= RUNNING
-      Server ListenAddress .....= localhost/127.0.0.1
-      Server ListenPort    .....= 7001
-      Server Health State  .....= Component:null,Partition: null,State:HEALTH_OK,MBean:null,Symptoms:[], ReasonCode:[]
-###################################################################################
-###################################################################################
-###################################################################################
-Connecting to the Admin Server (t3://localhost:7001)
-Connecting to t3://localhost:7001 with userid weblogic ...
-Successfully connected to Admin Server "AdminServer" that belongs to domain "base_domain".
-
-Warning: An insecure protocol was used to connect to the server.
-To ensure on-the-wire security, the SSL port or Admin port should be used instead.
-
-Connected
-Location changed to serverRuntime tree.
- This is a read-only tree with ServerRuntimeMBean as the root.
-For more help, use help('serverRuntime').
-
-#####################
-Location changed to domainConfig tree. This is a read-only tree
-with DomainMBean as the root MBean.
-For more help, use help('domainConfig')
-
-
-
-###################      DETAILED SUMMARY       ############################################
 Managed-Server: AdminServer
 ---------------------------------------------------------------
 
 Server JVM Information:
      JavaVendor ............................. = Oracle Corporation
      JavaVersion ............................ = 1.8.0_191
-     HeapFreeCurrent ........................ = 190389632
-     HeapFreePercent ........................ = 62
-     HeapSizeCurrent ........................ = 367525888
-     Uptime ................................. = 12878 seconds
+     HeapFreeCurrent ........................ = 221128872
+     HeapFreePercent ........................ = 68
+     HeapSizeCurrent ........................ = 370147328
+     Uptime ................................. = 15149 seconds
 
 Server ThreadPool Information:
      Name ................................... = ThreadPoolRuntime
      HealthState ............................ = HEALTH_OK
-     CompletedRequestCount .................. = 41456
+     CompletedRequestCount .................. = 49783
      ExecuteThreadTotalCount ................ = 11
      ExecuteThreadIdleCount ................. = 1
      HoggingThreadCount ..................... = 0
@@ -56,6 +21,23 @@ Server ThreadPool Information:
      SharedCapacityForWorkManagers .......... = 65536
      StandbyThreadCount ..................... = 9
      Suspended .............................. = 0
-     Throughput ............................. = 7.0
-#########################################################################################
+     Throughput ............................. = 7.496251874062969
+
+
+
+###################      SUMMARY       ############################################
+Connecting to t3://localhost:7001 with userid weblogic ...
+Successfully connected to Admin Server "AdminServer" that belongs to domain "base_domain".
+
+Warning: An insecure protocol was used to connect to the server.
+To ensure on-the-wire security, the SSL port or Admin port should be used instead.
+
+**************************************************
+############## AdminServer ###############
+**************************************************
+      Server State         .....= RUNNING
+      Server ListenAddress .....= localhost/127.0.0.1
+      Server ListenPort    .....= 7001
+      Server Health State  .....= Component:null,Partition: null,State:HEALTH_OK,MBean:null,Symptoms:[], ReasonCode:[]
+###################################################################################
 Disconnected from weblogic server: AdminServer
