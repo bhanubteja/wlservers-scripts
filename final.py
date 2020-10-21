@@ -5,9 +5,7 @@ import sys
 #from java.io import File
 
 def connnectToAdminServer():
-
          connUri = 't3://localhost:7001'
-
          print 'Connecting to the Admin Server ('+connUri+')';
          connect('weblogic','weblogic123',connUri);
          print 'Connected';
