@@ -1,0 +1,550 @@
+#----------------------------------------------------------------------
+# File Name: check_was.py
+#   Purpose: Display user requested information about
+#            WebSphere Application Server (WSAS) resources.
+#   History:
+#   date    ver  who  what
+# --------  ---  ---  ----------
+# 10/09/07  0.8  HG   Fix - Ratio needed * 100.0 
+#                           Expanded threadpool column headings
+# 10/09/07  0.7  HG   Add - test for "Help" before things start
+# 10/08/27  0.6  HG   Add - displayDict() & use in theadpool()
+# 10/08/20  0.5  HG   Fix - typo in Usage
+# 10/08/20  0.4  HG   Fix - AdminConfig.getAttributes()  is wrong
+#                           AdminControl.getAttributes() is right (sigh)
+# 10/08/20  0.3  HG   Fix - Add exception check in threadpool() based upon client issue
+# 10/08/19  0.2  HG   Fix - Add the threadpool() routine specifics
+# 10/07/22  0.1  HG   Fix - the Usage "example", added badInfo mapped message
+#----------------------------------------------------------------------
+'''Command: %(cmdName)s\n
+Purpose: wsadmin script used to display user specified information about
+         WebSphere Application Server resources.\n
+Version: %(version)s
+Updated: %(updated)s\n
+  Usage: %(cmdName)s [options]\n
+Required switches/options:
+  -i | --info       <value> = Type of information being requested
+  -s | --serverName <value> = Target serverName\n
+Optional switches/options:
+  -n | --nodeName   <value> = Target nodeName\n
+Information types/values:
+  connectionpool - Display Connection Pool details
+  heapsize       - Display Heap Size details
+  threadpool     - Display Thread Pool details
+  sessions       - Display Session Details\n
+Notes:
+- Long form option values may be separated/delimited from their associated
+  identifier using either a space, or an equal sign ('=').\n
+- Short form option values may be sepearated from their associated letter
+  using an optional space.\n
+- Text containing blanks must be enclosed in double quotes.\n
+Examples:
+  wsadmin -f %(cmdName)s.py -i heapsize -s server1 -n node01\n'''
+
+import os, re, sys, getopt;
+if 'Help' not in dir() :
+  try :
+    import Help;
+  except :
+    print 'Required module "Help" unavailable.';
+    sys.exit();
+
+__scriptName__ = 'check_was';
+__version__    = '0.8';
+__updated__    = '07 Sept 2010';
+
+
+#---------------------------------------------------------------------
+# Name: beanNameAsDict()
+# Role: Parse the specified MBean and return a dictionary of the name
+#       value pairs
+#---------------------------------------------------------------------
+def beanNameAsDict( bean ) :
+  'beanNameAsDict() - Parse the specified MBean and return a dictionary of the name value pairs'
+  result = {};
+  for pair in bean.split( ':', 1 )[ 1 ].split( ',' ) :
+    n, v = pair.split( '=', 1 );
+    result[ n ] = v;
+  return result;
+
+#---------------------------------------------------------------------
+# Name: callerName
+# Role: Utility routine used to determine, and return the name of the
+#       calling function.
+# Note: Dependends on sys._getframe()
+#  See: http://code.activestate.com/recipes/66062/
+#---------------------------------------------------------------------
+def callerName() :
+  "callerName() - Returns the name of the calling routine (or '?')"
+  return sys._getframe( 1 ).f_code.co_name;
+
+
+#---------------------------------------------------------------------
+# Name: configurable()
+# Role: Return true (1) if AdminConfig object is available, false (0) otherwise
+#---------------------------------------------------------------------
+def configurable() :
+  'configurable() - Return true (1) if AdminConfig object is available, false (0) otherwise'
+  try :
+    host   = AdminConfig.list( 'Server' );
+    result = 1;                        # True  = AdminConfig object is available
+  except :
+    result = 0;                        # False = AdminConfig object not available
+  return result;
+
+
+#---------------------------------------------------------------------
+# Name: configIdAsDict
+# Role: Parse a config ID and return a dictionary of name/value pairs
+# Note: Exception handler requires sys module
+#       The keys in the returned dictionary come from the configID, so
+#       are unlikely to match your defect expectations about exactly
+#       what values are used (e.g., 'nodes' instead of "Node")
+#---------------------------------------------------------------------
+def configIdAsDict( configId ) :
+  'configIdAsDict( configId ) - Given a configID, return a dictionary of the name/value components.'
+  funName = callerName();              # Name of this function
+  result  = {};                        # Result is a dictionary
+  hier    = [];                        # Initialize to simplifiy checks
+  try :                                # Be prepared for an error
+    #-----------------------------------------------------------------
+    # Does the specified configID match our RegExp pattern?
+    # Note: mo == Match Object, if mo != None, a match was found
+    #-----------------------------------------------------------------
+    if ( configId[ 0 ] == '"' ) and ( configId[ -1 ] == '"' ) and ( configId.count( '"' ) == 2 ) :
+      configId = configId[ 1:-1 ];
+    mo = re.compile( r'^([\w ]+)\(([^|]+)\|[^)]+\)$' ).match( configId );
+    if mo :
+      Name = mo.group( 1 );
+      hier = mo.group( 2 ).split( '/' );
+    if mo and ( len( hier ) % 2 == 0 ) :
+      #---------------------------------------------------------------
+      # hier == Extracted config hierarchy string
+      #---------------------------------------------------------------
+      for i in range( 0, len( hier ), 2 ) :
+        ( name, value ) = hier[ i ], hier[ i + 1 ];
+        result[ name ]  = value;
+      if result.has_key( 'Name' ) :
+        print '''%s: Unexpected situation - "Name" attribute conflict,
+  Name = "%s", Name prefix ignored: "%s"''' % ( funName, result[ 'Name' ], Name );
+      else :
+        result[ 'Name' ] = Name;
+    else :
+      print '''%(funName)s:
+  Warning: The specified configId doesn\'t match the expected pattern,
+           and is ignored.
+  configId: "%(configId)s"''' % locals();
+  except :
+    ( kind, value ) = sys.exc_info()[ :2 ];
+    print '''%(funName)s: Unexpected exception.\n
+  Exception  type: %(kind)s
+  Exception value: %(value)s''' % locals();
+  return result;
+
+
+#---------------------------------------------------------------------
+# Name: displayDict
+# Role: To display the contents of a dictionary in a more readable format
+# History:
+#   when  ver who what
+# -------- --- --- ------------------------------------------
+# 10/05/28 0.5 rag fix - Need to check string len before accessing [ 0 ] ...
+# 10/05/13 0.4 rag fix - Add code to handle double quoted "list" values
+# 10/05/12 0.3 rag fix - Add try / except in case dict.keys() doesn't exist
+#                  add - New code to display "list" values better
+# 10/04/08 0.2 rag Fix - Handle "empty" dictionary
+# 09/11/14 0.1 rag Fix - Add optional width parm for key values
+# 09/04/07 0.0 rag New - Based upon work for the book
+#---------------------------------------------------------------------
+def displayDict( dict, width = None ) :
+  'displayDict( dict, width = None ) - Display dictionary contents in key name order'
+  try :
+    names = dict.keys();
+    names.sort();
+    if dict :
+      if not width :
+        width = max( [ len( x ) for x in names ] );
+      for name in names :
+        value = dict[ name ];
+        if len( value ) > 0 and value[ 0 ] == '[' and value[ -1 ] == ']' and value.count( ' ' ) > 0 :
+          print '%*s : [' % ( width, name );
+          #-----------------------------------------------------------
+          # Special case: Check for double quoted items.
+          # e.g., Config IDs containing embedded blanks.
+          #-----------------------------------------------------------
+          if value.find( '"' ) < 0 :
+            for item in value[ 1:-1 ].split( ' ' ) :
+              print '%*s    %s' % ( width, ' ', item );
+          else :
+            value = value[ 1:-1 ];     # Remove brackets '[' & ']'
+            while value :              # As long as data remains...
+              if value[ 0 ] == '"' :   # Is this item double quoted?
+                item, value = value[ 1: ].split( '"', 1 );
+                value = value.lstrip();# Discard any leading blanks
+              else :                   # Leading item isn't quoted
+                item, value = value.split( ' ', 1 );
+              print '%*s    %s' % ( width, ' ', item );
+          print '%*s   ]' % ( width, ' ' );
+        else :
+          print '%*s : %s' % ( width, name, value );
+  except :
+    Type, value = sys.exc_info()[ :2 ];
+    print '%s() exception:\n  type: %s\n value: %s' % ( callerName(), str( Type ), str( value ) );
+
+
+#---------------------------------------------------------------------
+# Name: heapsize()
+# Role: Display information about the heap for the specified server
+#---------------------------------------------------------------------
+def heapsize( configID ) :
+  'heapsize() - Display used and free stats for the JVM of the specified server'
+  cDict = configIdAsDict( configID );
+  jvm   = AdminControl.queryNames( 'type=JVM,process=%(servers)s,node=%(nodes)s,*' % cDict );
+  if jvm :
+    used    = AdminControl.getAttribute( jvm, 'heapSize' );
+    free    = AdminControl.getAttribute( jvm, 'freeMemory' );
+    total   = int( used ) + int( free );
+    percent = float( used ) * 100.0 / float( total );
+    print 'heapsize: node=%s  server=%s  used=%.1f MB (%.2f%%)  free=%.1f MB' % ( cDict[ 'nodes' ], cDict[ 'servers' ], MB( used ), percent, MB( free ) );
+  else :
+    print 'Specified server does not appear to be active: node=%(nodes)s  server=%(servers)s' % cDict;
+
+
+#---------------------------------------------------------------------
+# Name: localMode()
+# Role: Return true (1) if AdminControl object is unavailable, false
+#       (0) otherwise.
+# Note: In localmode (i.e., -conntype none), this returns true (1)
+#---------------------------------------------------------------------
+def localMode() :
+  'localMode() - Return true (1) if AdminControl object is unavailable, false (0) otherwise'
+  try :
+    host   = AdminControl.getCell();
+    result = 0;                        # No, we're connected
+  except :
+    result = 1;                        # Yes, --contype none
+  return result;
+
+
+#---------------------------------------------------------------------
+# Name: main()
+# Role: Perform the actual work of the script
+#---------------------------------------------------------------------
+def main( cmdName = None ) :
+  missingParms = '%(cmdName)s: Insufficient parameters provided.\n';
+  ambigServer  = '%(cmdName)s: Ambiguous server specified: %(serverName)s\n';
+  badReqdParam = '%(cmdName)s: Invalid required parameter: %(key)s\n';
+  badInfo      = '%(cmdName)s: As yet unimplemented "info" request: %(info)s\n';
+  badNode      = '%(cmdName)s: Unknown node: %(nodeName)s\n';
+  badServer    = '%(cmdName)s: Unknown server: %(serverName)s\n';
+  serverReqd   = '%(cmdName)s: Missing required parameter: "serverName".\n';
+
+  if not cmdName :
+    cmdName = __scriptName__;
+  
+  #-------------------------------------------------------------------
+  # How many user command line parameters were specified?
+  #-------------------------------------------------------------------
+  argc = len( sys.argv );                   # Number of arguments
+  if ( argc < 2 ) :                         # If too few are present,
+    print missingParms % locals();          #   tell the user, and
+    Usage( cmdName );                       #   provide the Usage info
+  else :                                    # otherwise
+    Opts = parseOpts( cmdName );            #   parse the command line
+
+  #-------------------------------------------------------------------
+  # Assign values from the user Options dictionary, to make value
+  # access simplier, and easier.  For example, instead of using:
+  #   Opts[ 'nodeName' ]
+  # we will be able to simply use:
+  #   nodeName
+  # to access the value.
+  #-------------------------------------------------------------------
+  for key in Opts.keys() :
+    val = Opts[ key ];
+    cmd = '%s=Opts["%s"]' % ( key, key );
+#   print cmd;
+    exec( cmd );
+
+  #-------------------------------------------------------------------
+  # Check required parameters
+  #-------------------------------------------------------------------
+  if info not in [ 'heapsize', 'sessions', 'connectionpool', 'threadpool' ] :
+    print badInfo % locals();
+    Usage( cmdName );
+    
+  if not serverName :
+    print serverReqd % locals();
+    Usage( cmdName );
+  
+  #-------------------------------------------------------------------
+  # Was the nodeName specified, and if so, does it exist?
+  #-------------------------------------------------------------------
+  node = None;
+  if nodeName :
+    for nid in AdminConfig.list( 'Node' ).splitlines() :
+       if nid.startswith( nodeName + '(' ) :
+         node = nid;
+    if not node :
+      print badNode % locals();
+  
+  #-------------------------------------------------------------------
+  # Does the specified serverName exist (within the scope of the
+  # specified node)?
+  # Note: A scope of None is identical to not specifying a scope
+  #-------------------------------------------------------------------
+  servers = [];
+  for sid in AdminConfig.list( 'Server', node ).splitlines() :
+    if sid.startswith( serverName + '(' ) :
+      servers.append( sid );
+  if len( servers ) < 1 :
+    print badServer % locals();
+    sys.exit();
+  elif len( servers ) > 1 :
+    print ambigServer % locals();
+    nodes = [];
+    for sid in servers :
+      nodes.append( configIdAsDict( sid )[ 'nodes' ] );
+    print 'Specify one of the following nodes using the --nodeName option: ' + ( ', '.join( nodes ) );
+    sys.exit();
+  server = servers[ 0 ];
+
+# print 'Request for %s on %s' % ( info, server );
+  if info == 'heapsize' :
+    heapsize( server );
+  elif info == 'threadpool' :
+    threadpool( server );
+  else :
+    print 'Not yet implemented: "%s"' % info
+
+
+#---------------------------------------------------------------------
+# Name: MB()
+# Role: Convert the specified (integer) value [bytes] into MegaBytes
+#---------------------------------------------------------------------
+def MB( val ) :
+  'MB() - Convert specified integer (byte) value into MegaBytes'
+  return int( val ) / ( 1024.0 * 1024.0 );
+
+
+#---------------------------------------------------------------------
+# Name: MBattrAsDict
+# Role: Utility routine used to return a dictionary of attributes for
+#       the specified mbean
+# Note: Depends upon availability of WSAS Admin Objects via sys.modules
+# History:
+#   when  ver who what
+# -------- --- --- ---------------------------------------------------
+# 09/11/10 0.1 rag Add - Add 'Modifiable' value to result
+# 09/04/08 0.0 rag New - insight obtained while writing the book
+#---------------------------------------------------------------------
+def MBattrAsDict( mbean ) :
+  "MBattrAsDict( mbean ) - Given an MBean string, return a dictionary of it's attributes."
+  funName = callerName();              # Name of this function
+  result = {};                         # Result is a dictionary
+  #-------------------------------------------------------------------
+  # The first line of Help.attributes() result contains the "column
+  # headings", not values, and is ignored by slicing using [ 1: ].
+  # For each valid attribute, we use the name to get the value
+  #-------------------------------------------------------------------
+  try :                                # Be prepared for an error
+    attr = Help.attributes( mbean ).splitlines()[ 1: ];
+    for att in attr :
+      name = att.split( ' ', 1 )[ 0 ]; # Everything ahead of 1st space
+      #---------------------------------------------------------------
+      # Unfortunately, for some attribute names, an attempt to
+      # getAttribute() will cause an exception, these we ignore.
+      #---------------------------------------------------------------
+      try :
+        result[ name ] = AdminControl.getAttribute( mbean, name );
+      except :
+        pass;
+    #-----------------------------------------------------------------
+    # After all available attributes have been retrieved, see if one
+    # name "Modifiable" exists.  If it does, we have a problem, which
+    # needs to be reported.
+    # Otherwise, use list comprehension to locate those attributes
+    # that are specified as "Read-Write".  Put all of these attribute
+    # names into a list, and save it as result[ 'Modifiable' ].
+    #-----------------------------------------------------------------
+    # Note: Specifying x.split( ' ', 1 )[ 0 ] means that a maximum of
+    #       1 split will occur (i.e., strings will be created), and
+    #       only the first (i.e., the leading non-blank characters)
+    #       will be returned.
+    #-----------------------------------------------------------------
+    if result.has_key( 'Modifiable' ) :
+      print '%(funName)s: "Modifiable" attribute already exists, and not replace.' % locals();
+    else :
+      result[ 'Modifiable' ] = [ x.split( ' ', 1 )[ 0 ] for x in attr if x.endswith( 'RW' ) ];
+  except :
+    notavail = 'AdminControl service not available';
+    #-----------------------------------------------------------------
+    # One likely source of errors is that an invalid MBean was
+    # provided, in which case an empty dictionary is returned.
+    #-----------------------------------------------------------------
+    ( kind, value ) = sys.exc_info()[ :2 ];
+    ( kind, value ) = str( kind ), str( value );
+    if value.endswith( notavail ) :
+      if 'AdminTask' in sys.modules.keys() :
+        print '%(funName)s "%(notavail)s": Was wsadmin started with "-conntype none"?' % locals();
+      else :
+        print '%(funName)s "%(notavail)s": wsadmin isn\'t connected to a server.' % locals();
+    elif value.find( 'WASX7025E' ) > -1 :
+      print '%(funName)s: Invalid mbean identifier: %(mbean)s' % locals();
+    else :
+      print 'Exception  type: ' + kind;
+      print 'Exception value: ' + value;
+  return result;
+
+
+#---------------------------------------------------------------------
+# Name: parseOpts()
+# Role: Process the user specified (command line) options
+#---------------------------------------------------------------------
+def parseOpts( cmdName ) :
+  shortForm = 'i:n:s:';
+  longForm  = 'info=,nodeName=,serverName='.split( ',' );
+  badOpt    = '%(cmdName)s: Unknown/unrecognized parameter%(plural)s: %(argStr)s\n';
+  optErr    = '%(cmdName)s: Error encountered processing: %(argStr)s\n';
+  problem   = '%(cmdName)s: Error option processing problem: %(opt)s\n';
+
+  try :
+    opts, args = getopt.getopt( sys.argv, shortForm, longForm );
+  except getopt.GetoptError :
+    argStr = ' '.join( sys.argv );
+    print optErr % locals();
+    Usage( cmdName );
+
+  #-------------------------------------------------------------------
+  # Initialize the Opts dictionary using the longForm key identifiers
+  #-------------------------------------------------------------------
+  Opts = {};
+  for name in longForm :
+    if name[ -1 ] == '=' :
+      name = name[ :-1 ]
+    Opts[ name ] = None;
+
+  #-------------------------------------------------------------------
+  # Process the list of options returned by getopt()
+  #-------------------------------------------------------------------
+  for opt, val in opts :
+    if opt in   ( '-i', '--info' )       : Opts[ 'info'       ] = val
+    elif opt in ( '-n', '--nodeName' )   : Opts[ 'nodeName'   ] = val
+    elif opt in ( '-s', '--serverName' ) : Opts[ 'serverName' ] = val
+    else :
+      print problem % locals();
+
+  #-------------------------------------------------------------------
+  # Check for unhandled/unrecognized options
+  #-------------------------------------------------------------------
+  if ( args != [] ) :        # If any unhandled parms exist => error
+    argStr = ' '.join( args );
+    plural = '';
+    if ( len( args ) > 1 ) : plural = 's';
+    print badOpt % locals();
+    Usage( cmdName );
+
+  #-------------------------------------------------------------------
+  # Return a dictionary of the user specified command line options
+  #-------------------------------------------------------------------
+  return Opts;
+
+
+#---------------------------------------------------------------------
+# Name: threadpool()
+# Role: Display information about the WebContainer threadpool for the
+#       specified server
+#---------------------------------------------------------------------
+def threadpool( serverID ) :
+  'threadpool() - Display info about the threadpools for the specified server'
+
+  result = {};  # Build a dictionary of ThreadPool information
+  #-------------------------------------------------------------------
+  # For each configured ThreadPool in the specified server...
+  #-------------------------------------------------------------------
+  for tp in AdminConfig.list( 'ThreadPool', serverID ).splitlines() :
+    mb   = AdminConfig.getObjectName( tp ); # Is it "active"?
+    tpD  = {};                              # ThreadPool    Dictionary
+    info = {};                              # Informational Dictionary
+    #-----------------------------------------------------------------
+    # if an active ThreadPool MBean exists...
+    #-----------------------------------------------------------------
+    if mb :
+      try :
+        tpD   = MBattrAsDict( mb );         # MBean attributes
+#       print 'Thread Pool MBean attributes:'
+#       print '-' * 50;
+#       displayDict( tpD );
+#       print '-' * 50;
+        stats = tpD[ 'stats' ];             # We need the stats part
+        start = stats.find( '{' );          # ... data is between { }
+        fini  = stats.rfind( '}' );         #
+        text  = stats[ start + 1 : fini ].strip();
+        for item in text.split( ', ' ) :    # name=value, name=value...
+          name, value = item.split( '=' );  # get the name & value
+          info[ name ] = value;             # put them into info{}
+      except :
+        Type, value = sys.exc_info()[ :2 ];
+        print 'Exception: %s\n    value: %s' % ( `Type`, `value` );
+        print 'Processing:\n', AdminControl.getAttributes( mb );
+        sys.exit();
+    result[ tp ] = { 'MBean' : mb, 'attr' : tpD, 'stats' : info };
+
+  #-------------------------------------------------------------------
+  # result dictionary is indexed by ThreadPool configuration IDs
+  #-------------------------------------------------------------------
+  ids = result.keys();
+  ids.sort();
+  #-------------------------------------------------------------------
+  # Get the name attribute for each ThreadPool config ID
+  #-------------------------------------------------------------------
+  names = [ AdminConfig.showAttribute( x, 'name' ) for x in ids ];
+  #-------------------------------------------------------------------
+  # Find the widest & display the table headings
+  #-------------------------------------------------------------------
+  width = max( [ len( x ) for x in names ] );
+  print '%*s |           Low    High'                                % ( width, '' );
+  print '%*s |           Water  Water  Lower  Upper  Current'        % ( width, '' );
+  print '%*s | integral  Mark   Mark   Bound  Bound  Usage    Ratio' % ( width, 'Name' );
+  print '%s-+-%s' % ( '-' * width, '-' * 52 );
+  #-------------------------------------------------------------------
+  # For each active ThreadPool resource, display the stats details...
+  #-------------------------------------------------------------------
+  for i in range( len( names ) ) :
+    id = ids[ i ];
+    mb = result[ id ][ 'MBean' ];
+    if mb :
+      print '%*s |' % ( width, names[ i ] ),
+      stats = result[ id ][ 'stats' ];
+      print '%(integral)8.1f %(lowWaterMark)4d %(highWaterMark)6d %(lowerBound)6d %(upperBound)6d %(current)6d' % stats,
+      print '%9.2f%%' % ( float( stats[ 'current' ] ) * 100.0 / float( stats[ 'highWaterMark' ] ) );
+
+
+#---------------------------------------------------------------------
+# Name: Usage()
+# Role: Display usage information necessary to use this script.
+#---------------------------------------------------------------------
+def Usage( cmdName = None ) :
+  if not cmdName :
+    cmdName = __scriptName__;
+
+  version, updated = __version__, __updated__;
+  print __doc__ % locals();       # Script docstring contains usage info
+  sys.exit();
+
+  
+#----------------------------------------------------------------------
+# Code execution begins
+#----------------------------------------------------------------------
+if ( __name__ == '__main__' ) or ( __name__ == 'main' ) :
+  if localMode() :
+    print 'A connection to WebSphere Application Server is required.\n';
+    Usage();
+  elif configurable() :
+    main();
+  else :
+    print 'WebSphere Application Server scripting objects appear to be unavailable.\n';
+    Usage();
+else :
+  print 'This script should be executed, not imported.\n';
+  Usage( __name__ );
